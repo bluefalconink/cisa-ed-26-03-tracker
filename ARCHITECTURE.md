@@ -217,13 +217,15 @@ graph LR
 |------|-------|---------|
 | `.github/scripts/generate_architecture.py` | 474 | CI/CD script |
 | `.github/workflows/generate-docs.yml` | 42 | GitHub Actions workflow |
+| `=2.0.36` | 14 |  |
 | `ACSC-led Cisco SD-WAN Hunt Guide.pdf` | 24340 | Official joint threat hunt guide (PDF) |
-| `app.py` | 919 | Main Streamlit application |
-| `database.py` | 69 | SQLAlchemy ORM models & session factory |
+| `ARCHITECTURE.md` | 251 | This auto-generated architecture doc |
 | `Dockerfile` | 21 | Container build configuration |
 | `LICENSE` | 21 | MIT License — BlueFalconInk LLC |
 | `PRD_ED_26_03.md` | 201 | Product Requirements Document |
 | `README.md` | 187 | Setup, features, and deployment guide |
+| `app.py` | 919 | Main Streamlit application |
+| `database.py` | 69 | SQLAlchemy ORM models & session factory |
 | `requirements.txt` | 4 | Python dependency list |
 
 ## 8. CI/CD Pipeline
