@@ -53,7 +53,12 @@ CISA and the authoring organizations direct agencies to **immediately**:
 ### A. Asset Inventory Management
 - **Single Point of Entry:** Log `vManage` and `vSmart` instances with hostname, IP address, software version, and environment notes.
 - **Real-time Visibility:** Shared dashboard where multiple engineers can view the current inventory status.
-- **Metrics Dashboard:** At-a-glance counts of total assets, forensics completion, patch status, and hunt completion.
+- **Metrics Dashboard:** At-a-glance counts of total assets, forensics completion, patch status, hunt completion, and hardening status.
+- **Bulk Import:** One-click import from CSV, Excel (.xlsx), JSON, or TSV files with:
+  - Intelligent regex-based column matching (e.g., `host_name`, `Hostname`, `device_name` all map to hostname)
+  - Automatic duplicate detection (matching hostname + IP address)
+  - Preview table before committing import
+  - Support for flexible column naming across agency inventory exports
 
 ### B. Forensic Workflow Enforcement
 - **Strict Sequencing:** The UI must enforce that forensic capture (snapshots/core dumps/home directories) is completed and verified **before** the system can be marked as "Patched."
@@ -122,12 +127,19 @@ Per the joint **Cisco SD-WAN Threat Hunt Guide** (CISA, NSA, ASD ACSC, Canadian 
 
 ```
 cisa-ed-26-03-tracker/
-├── app.py               # Main Streamlit application
-├── database.py          # Database models and session handling (SQLAlchemy)
-├── requirements.txt     # Python dependency list
-├── Dockerfile           # Container configuration for Cloud Run
-├── PRD_ED_26_03.md      # This document
-└── README.md            # Setup and deployment instructions
+├── .github/
+│   └── workflows/
+│       └── generate-docs.yml    # GitHub Actions: auto-generate architecture docs
+├── app.py                       # Main Streamlit application (~920 lines)
+├── database.py                  # SQLAlchemy 2.0 ORM models & session factory
+├── requirements.txt             # Python dependency list
+├── Dockerfile                   # Container configuration for Cloud Run
+├── PRD_ED_26_03.md              # This document
+├── ARCHITECTURE.md              # Auto-generated architecture documentation
+├── README.md                    # Setup and deployment instructions
+├── LICENSE                      # MIT License — BlueFalconInk LLC
+├── .gitignore                   # Python / SQLite / IDE / OS ignores
+└── ACSC-led Cisco SD-WAN Hunt Guide.pdf  # Official joint threat hunt guide
 ```
 
 ---

@@ -1,0 +1,42 @@
+name: Generate Architecture Docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install sqlalchemy>=2.0.36
+
+      - name: Generate ARCHITECTURE.md
+        run: |
+          python .github/scripts/generate_architecture.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ARCHITECTURE.md
+          git diff --cached --quiet || (git commit -m "docs: auto-update architecture documentation [skip ci]" && git push)
