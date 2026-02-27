@@ -28,3 +28,9 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Secrets (never commit)
+*.pem
+*.key
+*.json.enc
+service-account*.json

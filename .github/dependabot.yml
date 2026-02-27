@@ -1,0 +1,35 @@
+# ──────────────────────────────────────────────
+# Dependabot Configuration — BlueFalconInk LLC
+#
+# CSIAC Domain: Governance
+# Automates dependency update PRs for:
+#   - Python packages
+#   - GitHub Actions versions
+# ──────────────────────────────────────────────
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "bluefalconink"
+    labels:
+      - "dependencies"
+      - "security"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions version updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "bluefalconink"
+    labels:
+      - "dependencies"
+      - "ci"
+    open-pull-requests-limit: 10
