@@ -31,9 +31,9 @@ class SDWANInstance(Base):
     # ── Hardening ──
     hardening_implemented: Mapped[bool] = mapped_column(default=False)
     notes: Mapped[Optional[str]] = mapped_column(String, default="")
-    timestamp: Mapped[Optional[datetime]] = mapped_column(default_factory=datetime.utcnow)
+    timestamp: Mapped[Optional[datetime]] = mapped_column(insert_default=datetime.utcnow)
     last_updated: Mapped[Optional[datetime]] = mapped_column(
-        default_factory=datetime.utcnow, onupdate=datetime.utcnow
+        insert_default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
     hunt_findings: Mapped[List["HuntFinding"]] = relationship(
@@ -51,7 +51,7 @@ class HuntFinding(Base):
     description: Mapped[str] = mapped_column(Text)
     evidence: Mapped[Optional[str]] = mapped_column(Text, default="")  # CLI output / log excerpt
     analyst: Mapped[Optional[str]] = mapped_column(String, default="")
-    timestamp: Mapped[Optional[datetime]] = mapped_column(default_factory=datetime.utcnow)
+    timestamp: Mapped[Optional[datetime]] = mapped_column(insert_default=datetime.utcnow)
 
     asset: Mapped["SDWANInstance"] = relationship(back_populates="hunt_findings")
 
