@@ -3,6 +3,8 @@ import pandas as pd
 from database import SessionLocal, SDWANInstance, HuntFinding, init_db
 from datetime import datetime
 import json
+import io
+import re
 
 # Initialize database on first run
 init_db()
@@ -139,6 +141,164 @@ with st.expander("➕ Register SD-WAN Instance", expanded=len(assets) == 0):
                 st.rerun()
             else:
                 st.error("Hostname and IP Address are required.")
+
+# ── Bulk Import ──
+with st.expander("📤 Bulk Import Assets (CSV, Excel, JSON, TSV)", expanded=False):
+    st.markdown(
+        "Upload a file containing your SD-WAN inventory. The importer will "
+        "auto-detect columns by matching common naming patterns.  \n"
+        "**Minimum required:** a column for **hostname** and **IP address**."
+    )
+    st.caption(
+        "Accepted column names (case-insensitive, flexible):  \n"
+        "**Hostname:** hostname, host, device, name, device_id, device-name, system-name  \n"
+        "**IP Address:** ip, ip_address, ip-address, ipaddr, address, mgmt_ip, management_ip  \n"
+        "**Type:** type, sys_type, system_type, role, device_type (values containing 'smart' → vSmart, otherwise vManage)  \n"
+        "**Version:** version, sw_version, software, firmware, os_version  \n"
+        "**Notes:** notes, description, location, site, comment"
+    )
+
+    uploaded = st.file_uploader(
+        "Choose a file",
+        type=["csv", "xlsx", "xls", "json", "tsv", "txt"],
+        key="bulk_upload",
+    )
+
+    if uploaded is not None:
+        # ── Parse file into DataFrame ──
+        import_df = None
+        fname = uploaded.name.lower()
+        try:
+            if fname.endswith((".csv", ".txt")):
+                raw = uploaded.read().decode("utf-8", errors="replace")
+                # Auto-detect delimiter
+                if "\t" in raw[:2000]:
+                    import_df = pd.read_csv(io.StringIO(raw), sep="\t")
+                else:
+                    import_df = pd.read_csv(io.StringIO(raw))
+            elif fname.endswith(".tsv"):
+                import_df = pd.read_csv(uploaded, sep="\t")
+            elif fname.endswith((".xlsx", ".xls")):
+                import_df = pd.read_excel(uploaded)
+            elif fname.endswith(".json"):
+                raw = uploaded.read().decode("utf-8", errors="replace")
+                data = json.loads(raw)
+                # Handle JSON: list of objects, or dict with a list value
+                if isinstance(data, list):
+                    import_df = pd.DataFrame(data)
+                elif isinstance(data, dict):
+                    # Find the first list-of-dicts value
+                    for v in data.values():
+                        if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
+                            import_df = pd.DataFrame(v)
+                            break
+                    if import_df is None:
+                        import_df = pd.DataFrame([data])
+        except Exception as e:
+            st.error(f"Failed to parse file: {e}")
+
+        if import_df is not None and not import_df.empty:
+            # ── Normalize column names ──
+            import_df.columns = [
+                re.sub(r"[^a-z0-9]", "_", c.strip().lower()) for c in import_df.columns
+            ]
+
+            # ── Flexible column mapping ──
+            COLUMN_PATTERNS = {
+                "hostname": r"host|device|name|system.?name|device.?id|device.?name",
+                "ip_address": r"ip|addr|mgmt.?ip|management.?ip",
+                "sys_type": r"type|role|device.?type|sys.?type|system.?type",
+                "version": r"version|sw.?ver|software|firmware|os.?ver",
+                "notes": r"note|desc|location|site|comment|region|env",
+            }
+
+            def find_column(df: pd.DataFrame, pattern: str) -> str | None:
+                """Return the first column name matching the pattern."""
+                for col in df.columns:
+                    if re.search(pattern, col):
+                        return col
+                return None
+
+            col_map = {}
+            for field, pattern in COLUMN_PATTERNS.items():
+                match = find_column(import_df, pattern)
+                if match:
+                    col_map[field] = match
+
+            # Show detected mapping
+            st.markdown("**Detected column mapping:**")
+            map_cols = st.columns(5)
+            map_cols[0].text(f"Hostname → {col_map.get('hostname', '❌ Not found')}")
+            map_cols[1].text(f"IP Addr  → {col_map.get('ip_address', '❌ Not found')}")
+            map_cols[2].text(f"Type     → {col_map.get('sys_type', '— (default: vManage)')}")
+            map_cols[3].text(f"Version  → {col_map.get('version', '— (empty)')}")
+            map_cols[4].text(f"Notes    → {col_map.get('notes', '— (empty)')}")
+
+            if "hostname" not in col_map or "ip_address" not in col_map:
+                st.error(
+                    "⛔ Could not detect both **hostname** and **IP address** columns. "
+                    "Please rename your columns and re-upload."
+                )
+            else:
+                # Preview
+                preview_df = import_df.head(10)
+                st.dataframe(preview_df, use_container_width=True)
+                st.caption(f"Showing first {min(10, len(import_df))} of {len(import_df)} rows.")
+
+                if st.button(f"✅ Import {len(import_df)} assets into inventory"):
+                    added = 0
+                    skipped = 0
+                    for _, row in import_df.iterrows():
+                        h = str(row.get(col_map["hostname"], "")).strip()
+                        ip = str(row.get(col_map["ip_address"], "")).strip()
+                        if not h or not ip or h == "nan" or ip == "nan":
+                            skipped += 1
+                            continue
+
+                        # Determine system type
+                        raw_type = str(row.get(col_map.get("sys_type", ""), "")).lower()
+                        if "smart" in raw_type or "controller" in raw_type:
+                            stype = "vSmart (Controller)"
+                        else:
+                            stype = "vManage (Manager)"
+
+                        ver = str(row.get(col_map.get("version", ""), "")).strip()
+                        if ver == "nan":
+                            ver = ""
+                        note = str(row.get(col_map.get("notes", ""), "")).strip()
+                        if note == "nan":
+                            note = ""
+
+                        # Check for duplicate (same hostname + IP)
+                        existing = (
+                            db.query(SDWANInstance)
+                            .filter(
+                                SDWANInstance.hostname == h,
+                                SDWANInstance.ip_address == ip,
+                            )
+                            .first()
+                        )
+                        if existing:
+                            skipped += 1
+                            continue
+
+                        db.add(
+                            SDWANInstance(
+                                hostname=h,
+                                ip_address=ip,
+                                sys_type=stype,
+                                version=ver,
+                                notes=note,
+                            )
+                        )
+                        added += 1
+
+                    db.commit()
+                    st.success(
+                        f"✅ **{added}** assets imported successfully. "
+                        f"**{skipped}** skipped (duplicates or missing data)."
+                    )
+                    st.rerun()
 
 st.divider()
 
